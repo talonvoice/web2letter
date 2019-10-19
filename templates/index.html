@@ -312,6 +312,7 @@ function gotUserMedia(localMediaStream) {
     }, 2500);
     var options = {
         source: input,
+        sampleRate: 16000,
         voice_start: function() {
             message('speech active');
             samples = samples.slice(samples.length - 16000);
