@@ -53,12 +53,12 @@ decode_opts.wordscore = 0.5
 decode_opts.unkweight = -float('Inf')
 decode_opts.logadd = False
 decode_opts.silweight = 0
-decode_opts.silweight = -0.1
 
 dfa_opts = ffi.new('w2l_dfa_decode_options *')
-dfa_opts.rejection_threshold = 0.75
+dfa_opts.command_score = 0.5
+dfa_opts.rejection_threshold = 0.55
 dfa_opts.rejection_window_frames = 8
-# dfa_opts.debug = True
+dfa_opts.debug = False
 # end decode opts
 
 encoder_tokens = []
@@ -93,7 +93,9 @@ def w2l_decode(samples, dfa=None):
         dfa_node = ffi.cast('w2l_dfa_node *', ffi.from_buffer(dfa))
         decode_text = lib.w2l_decoder_dfa(encoder, decoder, emission, dfa_node, dfa_opts)
     else:
-        decode_text = lib.w2l_decoder_decode(encoder, decoder, emission)
+        decode_result = lib.w2l_decoder_decode(decoder, emission)
+        decode_text = lib.w2l_decoder_result_words(decoder, decode_result)
+        lib.w2l_decoderesult_free(decode_result)
     decode_ms = (time.monotonic() - start) * 1000
     lib.w2l_emission_free(emission)
 
