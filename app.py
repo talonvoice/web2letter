@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import base64
 import cffi
 import os
@@ -107,7 +107,7 @@ app = Flask('wav2letter')
 @app.route('/')
 def slash():
     # TODO: ship webrtcvad here and let people play with it interactively?
-    return 'This is meant to be used with <a href="https://talonvoice.com">Talon</a> and not accessed directly'
+    return render_template('index.html')
 
 @app.route('/tokens')
 def tokens():
