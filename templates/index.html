@@ -453,7 +453,7 @@ function runDecode(samples) {
     }).then(response => response.text())
     .then(response => {
         var data = JSON.parse(response);
-        if (data.emit && data.decode) {
+        if (data.emit.length > 0 && data.decode.length > 0) {
             document.getElementById('emit').innerHTML = data.emit;
             document.getElementById('decode').innerHTML = data.decode.join(' ');
         }
