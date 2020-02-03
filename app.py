@@ -86,6 +86,7 @@ def w2l_decode(samples, dfa=None):
     emit_text = lib.w2l_emission_text(emission)
     emit = consume_c_text(emit_text, sep=' ')
     if not emit:
+        lib.w2l_emission_free(emission)
         return [], [], emit_ms, 0
 
     start = time.monotonic()
