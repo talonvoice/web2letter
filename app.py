@@ -6,18 +6,18 @@ import sys
 import time
 
 if os.name == 'nt':
-    w2l_library = 'libw2l.dll'
+    w2l_library = 'libw2lstream.dll'
 elif os.name == 'posix':
     if sys.platform == 'darwin':
-        w2l_library = 'libw2l.dylib'
+        w2l_library = 'libw2lstream.dylib'
     else:
-        w2l_library = 'libw2l.so'
+        w2l_library = 'libw2lstream.so'
 else:
     raise RuntimeError('unsupported OS')
 
 ffi = cffi.FFI()
 ffi.cdef('void free(void *);')
-with open('w2l.h', 'r') as f:
+with open('w2lstream.h', 'r') as f:
     lines = []
     ifdefs = 0
     for line in f.read().split('\n'):
@@ -33,41 +33,20 @@ with open('w2l.h', 'r') as f:
 lib = ffi.dlopen(w2l_library)
 
 good = True
-for name in ('acoustic.bin', 'tokens.txt', 'lm-ngram.bin', 'lexicon.txt'):
+for name in ('feature_extractor.bin', 'acoustic_model.bin', 'tokens.txt'):
     if not os.path.exists(name):
         print('Error: {} not found.'.format(name))
         good = False
 if not good:
     sys.exit(1)
 
-if not os.path.exists('lexicon_flat.bin'):
-    lib.w2l_make_flattrie(b'tokens.txt', b'lm-ngram.bin',
-                          b'lexicon.txt', b'lexicon_flat.bin')
-
-# set up decode options
-decode_opts = ffi.new('w2l_decode_options *')
-decode_opts.beamsize = 183
-decode_opts.beamthresh = 23.530
-decode_opts.lmweight = 1.30
-decode_opts.wordscore = 0.5
-decode_opts.unkweight = -float('Inf')
-decode_opts.logadd = False
-decode_opts.silweight = 0
-
-dfa_opts = ffi.new('w2l_dfa_decode_options *')
-dfa_opts.command_score = 0.5
-dfa_opts.rejection_threshold = 0.55
-dfa_opts.rejection_window_frames = 8
-dfa_opts.debug = False
-# end decode opts
-
 encoder_tokens = []
 with open('tokens.txt', 'r') as f:
     for line in f:
         encoder_tokens.append(line.strip())
 
-encoder = lib.w2l_engine_new(b'acoustic.bin', b'tokens.txt')
-decoder = lib.w2l_decoder_new(encoder, b'lm-ngram.bin', b'lexicon.txt', b'lexicon_flat.bin', decode_opts)
+chunk_size = 500 * 16000 // 1000
+encoder = lib.w2lstream_new(b'feature_extractor.bin', b'acoustic_model.bin', b'tokens.txt', chunk_size)
 
 def consume_c_text(c_text, sep):
     if not c_text:
@@ -80,34 +59,20 @@ def consume_c_text(c_text, sep):
 
 def w2l_decode(samples, dfa=None):
     start = time.monotonic()
-    emission = lib.w2l_engine_process(encoder, samples, len(samples))
+    text = lib.w2lstream_run(encoder, samples, len(samples))
     emit_ms = (time.monotonic() - start) * 1000
 
     emit_text = lib.w2l_emission_text(emission)
-    emit = consume_c_text(emit_text, sep=' ')
+    emit = consume_c_text(text, sep=' ')
     if not emit:
         lib.w2l_emission_free(emission)
         return [], [], emit_ms, 0
-
-    start = time.monotonic()
-    if dfa:
-        dfa_node = ffi.cast('w2l_dfa_node *', ffi.from_buffer(dfa))
-        decode_text = lib.w2l_decoder_dfa(encoder, decoder, emission, dfa_node, dfa_opts)
-    else:
-        decode_result = lib.w2l_decoder_decode(decoder, emission)
-        decode_text = lib.w2l_decoder_result_words(decoder, decode_result)
-        lib.w2l_decoderesult_free(decode_result)
-    decode_ms = (time.monotonic() - start) * 1000
-    lib.w2l_emission_free(emission)
-
-    decode = consume_c_text(decode_text, sep=' ')
-    return emit, decode, emit_ms, decode_ms
+    return emit, [], emit_ms, 0
 
 app = Flask('wav2letter')
 
 @app.route('/')
 def slash():
-    # TODO: ship webrtcvad here and let people play with it interactively?
     return render_template('index.html')
 
 @app.route('/tokens')
