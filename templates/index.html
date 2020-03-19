@@ -276,44 +276,44 @@ function Resampler(fromSampleRate, toSampleRate, channels, inputBuffer) {
     this.initialize();
 }
 Resampler.prototype.initialize = function () {
-	//Perform some checks:
-	if (this.fromSampleRate > 0 && this.toSampleRate > 0 && this.channels > 0) {
-		if (this.fromSampleRate == this.toSampleRate) {
-			//Setup a resampler bypass:
-			this.resampler = this.bypassResampler;		//Resampler just returns what was passed through.
+    //Perform some checks:
+    if (this.fromSampleRate > 0 && this.toSampleRate > 0 && this.channels > 0) {
+        if (this.fromSampleRate == this.toSampleRate) {
+            //Setup a resampler bypass:
+            this.resampler = this.bypassResampler;        //Resampler just returns what was passed through.
             this.ratioWeight = 1;
             this.outputBuffer = this.inputBuffer;
-		}
-		else {
+        }
+        else {
             this.ratioWeight = this.fromSampleRate / this.toSampleRate;
-			if (this.fromSampleRate < this.toSampleRate) {
-				/*
-					Use generic linear interpolation if upsampling,
-					as linear interpolation produces a gradient that we want
-					and works fine with two input sample points per output in this case.
-				*/
-				this.compileLinearInterpolationFunction();
-				this.lastWeight = 1;
-			}
-			else {
-				/*
-					Custom resampler I wrote that doesn't skip samples
-					like standard linear interpolation in high downsampling.
-					This is more accurate than linear interpolation on downsampling.
-				*/
-				this.compileMultiTapFunction();
-				this.tailExists = false;
-				this.lastWeight = 0;
-			}
-			this.initializeBuffers();
-		}
-	}
-	else {
-		throw(new Error("Invalid settings specified for the resampler."));
-	}
+            if (this.fromSampleRate < this.toSampleRate) {
+                /*
+                    Use generic linear interpolation if upsampling,
+                    as linear interpolation produces a gradient that we want
+                    and works fine with two input sample points per output in this case.
+                */
+                this.compileLinearInterpolationFunction();
+                this.lastWeight = 1;
+            }
+            else {
+                /*
+                    Custom resampler I wrote that doesn't skip samples
+                    like standard linear interpolation in high downsampling.
+                    This is more accurate than linear interpolation on downsampling.
+                */
+                this.compileMultiTapFunction();
+                this.tailExists = false;
+                this.lastWeight = 0;
+            }
+            this.initializeBuffers();
+        }
+    }
+    else {
+        throw(new Error("Invalid settings specified for the resampler."));
+    }
 }
 Resampler.prototype.compileLinearInterpolationFunction = function () {
-	var toCompile = "var outputOffset = 0;\
+    var toCompile = "var outputOffset = 0;\
     if (bufferLength > 0) {\
         var buffer = this.inputBuffer;\
         var weight = this.lastWeight;\
@@ -345,10 +345,10 @@ Resampler.prototype.compileLinearInterpolationFunction = function () {
         toCompile += "this.lastWeight = weight % 1;\
     }\
     return outputOffset;";
-	this.resampler = Function("bufferLength", toCompile);
+    this.resampler = Function("bufferLength", toCompile);
 }
 Resampler.prototype.compileMultiTapFunction = function () {
-	var toCompile = "var outputOffset = 0;\
+    var toCompile = "var outputOffset = 0;\
     if (bufferLength > 0) {\
         var buffer = this.inputBuffer;\
         var weight = 0;";
@@ -409,22 +409,22 @@ Resampler.prototype.compileMultiTapFunction = function () {
         } while (actualPosition < bufferLength);\
     }\
     return outputOffset;";
-	this.resampler = Function("bufferLength", toCompile);
+    this.resampler = Function("bufferLength", toCompile);
 }
 Resampler.prototype.bypassResampler = function (upTo) {
     return upTo;
 }
 Resampler.prototype.initializeBuffers = function () {
-	//Initialize the internal buffer:
+    //Initialize the internal buffer:
     var outputBufferSize = (Math.ceil(this.inputBuffer.length * this.toSampleRate / this.fromSampleRate / this.channels * 1.000000476837158203125) * this.channels) + this.channels;
-	try {
-		this.outputBuffer = new Float32Array(outputBufferSize);
-		this.lastOutput = new Float32Array(this.channels);
-	}
-	catch (error) {
-		this.outputBuffer = [];
-		this.lastOutput = [];
-	}
+    try {
+        this.outputBuffer = new Float32Array(outputBufferSize);
+        this.lastOutput = new Float32Array(this.channels);
+    }
+    catch (error) {
+        this.outputBuffer = [];
+        this.lastOutput = [];
+    }
 }
 
 var audio_context;
@@ -450,14 +450,15 @@ function runDecode(samples) {
         headers: { "Content-Type": "application/json; charset=utf-8" },
         method: 'POST',
         body: JSON.stringify({
+            uuid: uuid,
             samples: samples,
         })
     }).then(response => response.text())
     .then(response => {
         var data = JSON.parse(response);
-	if (data.error) {
+        if (data.error) {
             message(data.error);
-	}
+        }
         if (data.emit && data.emit.length > 0) {
             document.getElementById('decode').innerHTML += data.emit.join(' ') + ' ';
         }

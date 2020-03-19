@@ -63,7 +63,7 @@ def w2l_decode(stream, samples, dfa=None):
     start = time.monotonic()
     emit_text = lib.w2lstream_run(encoder, stream.id, samples, len(samples))
     emit_ms = (time.monotonic() - start) * 1000
-    emit = consume_c_text(text, sep=' ')
+    emit = consume_c_text(emit_text, sep=' ')
     if not emit:
         return [], [], emit_ms, 0
     return emit, [], emit_ms, 0
@@ -107,7 +107,7 @@ stream_map = {}
 
 last_gc = time.monotonic()
 @app.teardown_request
-def teardown():
+def teardown(x):
     global last_gc
     expire_time = time.monotonic() - 30
     if last_gc < expire_time:
@@ -130,7 +130,7 @@ def recognize():
     if not uuid:
         return jsonify({'error': 'no stream uuid found'})
 
-    stream = stream_map.get('uuid')
+    stream = stream_map.get(uuid)
     if stream is None:
         if free_nonces:
             stream_id = free_nonces.pop()
