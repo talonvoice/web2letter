@@ -59,13 +59,10 @@ def consume_c_text(c_text, sep):
 
 def w2l_decode(samples, dfa=None):
     start = time.monotonic()
-    text = lib.w2lstream_run(encoder, samples, len(samples))
+    emit_text = lib.w2lstream_run(encoder, samples, len(samples))
     emit_ms = (time.monotonic() - start) * 1000
-
-    emit_text = lib.w2l_emission_text(emission)
     emit = consume_c_text(text, sep=' ')
     if not emit:
-        lib.w2l_emission_free(emission)
         return [], [], emit_ms, 0
     return emit, [], emit_ms, 0
 
