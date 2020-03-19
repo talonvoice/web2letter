@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify, render_template
 import base64
 import cffi
+import itertools
 import os
 import sys
 import time
+import uuid
 
 if os.name == 'nt':
     w2l_library = 'libw2lstream.dll'
@@ -57,9 +59,9 @@ def consume_c_text(c_text, sep):
         return []
     return text.strip().split(sep)
 
-def w2l_decode(samples, dfa=None):
+def w2l_decode(stream, samples, dfa=None):
     start = time.monotonic()
-    emit_text = lib.w2lstream_run(encoder, samples, len(samples))
+    emit_text = lib.w2lstream_run(encoder, stream.id, samples, len(samples))
     emit_ms = (time.monotonic() - start) * 1000
     emit = consume_c_text(text, sep=' ')
     if not emit:
@@ -70,7 +72,7 @@ app = Flask('wav2letter')
 
 @app.route('/')
 def slash():
-    return render_template('index.html')
+    return render_template('index.html', uuid=uuid.uuid4())
 
 @app.route('/tokens')
 def tokens():
@@ -93,6 +95,29 @@ def stats():
 # response format (JSON):
 # {"emit": "some words", "decode": "some words", "emit_ms": 0, "decode_ms": 0}
 
+nonce = itertools.count()
+class Stream:
+    def __init__(self, uuid, stream_id):
+        self.uuid = uuid
+        self.id = stream_id
+        self.last_seen = time.monotonic()
+
+free_nonces = []
+stream_map = {}
+
+last_gc = time.monotonic()
+@app.teardown_request
+def teardown():
+    global last_gc
+    expire_time = time.monotonic() - 30
+    if last_gc < expire_time:
+        collect = []
+        for stream in stream_map.values():
+            if stream.last_seen < expire_time:
+                collect.append(stream.uuid)
+        for uuid in collect:
+            stream_map.pop(uuid, None)
+
 @app.route('/decode', methods=['POST'])
 def recognize():
     j = request.json
@@ -101,12 +126,27 @@ def recognize():
         if len(cfg) > 0x1000000:
             return jsonify({'error': 'cfg too large'})
         cfg = base64.b64decode(cfg)
+    uuid = j.get('uuid')
+    if not uuid:
+        return jsonify({'error': 'no stream uuid found'})
+
+    stream = stream_map.get('uuid')
+    if stream is None:
+        if free_nonces:
+            stream_id = free_nonces.pop()
+        else:
+            stream_id = next(nonce)
+        stream = Stream(uuid, stream_id)
+        stream_map[uuid] = stream
+    else:
+        stream.last_seen = time.monotonic()
+
     samples = j.get('samples', [])
     if not samples:
         return jsonify({'error': 'not enough samples'})
     if len(samples) > 480000:
         return jsonify({'error': 'too many samples'})
-    emit, decode, emit_ms, decode_ms = w2l_decode(samples, cfg)
+    emit, decode, emit_ms, decode_ms = w2l_decode(stream, samples, cfg)
     return jsonify({'emit': emit, 'decode': decode, 'emit_ms': emit_ms, 'decode_ms': decode_ms})
 
 if __name__ == '__main__':
