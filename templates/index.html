@@ -443,6 +443,7 @@ function runDecode(samples) {
     var len = Math.floor(samples.length);
     resampler.resampler(len);
     samples = Array.prototype.slice.call(resampler.outputBuffer);
+    samples = samples.slice(0, 8000);
 
     fetch('/decode', {
         headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -453,11 +454,12 @@ function runDecode(samples) {
     }).then(response => response.text())
     .then(response => {
         var data = JSON.parse(response);
-        if (data.emit.length > 0 && data.decode.length > 0) {
-            document.getElementById('emit').innerHTML = data.emit;
-            document.getElementById('decode').innerHTML = data.decode.join(' ');
+	if (data.error) {
+            message(data.error);
+	}
+        if (data.emit && data.emit.length > 0) {
+            document.getElementById('decode').innerHTML += data.emit.join(' ') + ' ';
         }
-        message('waiting for speech');
     }).catch(response => message('error from server: ' + response));
 }
 
@@ -496,6 +498,12 @@ function gotUserMedia(localMediaStream) {
         var mono = e.inputBuffer.getChannelData(0);
         mono = Array.prototype.slice.call(mono);
         samples = samples.concat(mono);
+        var samples_needed = Math.floor(audio_context.sampleRate / 16000.0 * 8000.0)
+        if (vad.vadState && samples.length >= samples_needed) {
+            var tmp = samples.slice(0, samples_needed);
+            samples = samples.slice(samples_needed);
+            runDecode(tmp);
+        }
     };
 
     input.connect(node);
@@ -503,7 +511,7 @@ function gotUserMedia(localMediaStream) {
 
     setTimeout(function() {
         var msg = document.getElementById('message');
-        if (msg.innerHTML = 'loading')
+        if (msg.innerHTML == 'loading')
             message('waiting for speech');
     }, 2500);
     var options = {
@@ -513,7 +521,7 @@ function gotUserMedia(localMediaStream) {
             samples = samples.slice(Math.max(samples.length - audio_context.sampleRate, 0));
         },
         voice_stop: function() {
-            message('waiting for server');
+            message('&nbsp;');
             runDecode(samples);
             samples = [];
         },
