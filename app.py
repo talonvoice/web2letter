@@ -1,9 +1,13 @@
 from flask import Flask, request, jsonify, render_template
 import base64
+import bson
 import cffi
+import io
 import os
+import soundfile as sf
 import sys
 import time
+import zlib
 
 if os.name == 'nt':
     w2l_library = 'libw2l.dll'
@@ -79,8 +83,9 @@ def consume_c_text(c_text, sep):
     return text.strip().split(sep)
 
 def w2l_decode(samples, dfa=None):
+    c_samples = ffi.new('float[]', samples)
     start = time.monotonic()
-    emission = lib.w2l_engine_process(encoder, samples, len(samples))
+    emission = lib.w2l_engine_process(encoder, c_samples, len(samples))
     emit_ms = (time.monotonic() - start) * 1000
 
     emit_text = lib.w2l_emission_text(emission)
@@ -110,6 +115,12 @@ def slash():
     # TODO: ship webrtcvad here and let people play with it interactively?
     return render_template('index.html')
 
+# TODO: use /info in web UI?
+@app.route('/info')
+def info():
+    return jsonify({'version': 2, 'tokens': encoder_tokens})
+
+# TODO: tokens is deprecated
 @app.route('/tokens')
 def tokens():
     return jsonify({'tokens': encoder_tokens})
@@ -133,13 +144,25 @@ def stats():
 
 @app.route('/decode', methods=['POST'])
 def recognize():
-    j = request.json
-    cfg = j.get('cfg', None)
-    if cfg:
-        if len(cfg) > 0x1000000:
-            return jsonify({'error': 'cfg too large'})
-        cfg = base64.b64decode(cfg)
-    samples = j.get('samples', [])
+    if request.content_type == 'application/bson':
+        data = request.data
+        if request.content_encoding == 'gzip':
+            data = zlib.decompress(data)
+        j = bson.loads(data)
+        cfg = j.get('cfg', None)
+    else:
+        j = request.json
+        cfg = j.get('cfg', None)
+        if cfg:
+            cfg = base64.b64decode(cfg)
+    if cfg and len(cfg) > 0x1000000:
+        return jsonify({'error': 'cfg too large'})
+
+    if j.get('version', 0) > 1 and 'flac' in j:
+        flacsamples, samplerate = sf.read(io.BytesIO(j['flac']))
+        samples = flacsamples.tolist()
+    else:
+        samples = j.get('samples', [])
     if not samples:
         return jsonify({'error': 'not enough samples'})
     if len(samples) > 480000:

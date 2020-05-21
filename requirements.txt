@@ -1,3 +1,6 @@
+bson
 cffi
 flask
+numpy
 requests
+soundfile
