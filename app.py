@@ -8,6 +8,7 @@ import soundfile as sf
 import sys
 import time
 import zlib
+import numpy as np
 
 if os.name == 'nt':
     libext = 'dll'
@@ -108,6 +109,7 @@ def consume_c_text(c_text, sep):
     return text.strip().strip(sep).split(sep)
 
 def w2l_decode(samples, dfa=None):
+    samples = (np.random.rand(8000) * 1e-12).tolist() + list(samples)
     c_samples = ffi.new('float[]', samples)
     start = time.monotonic()
     emission = lib.w2l_engine_forward(encoder, c_samples, len(samples))
@@ -122,7 +124,7 @@ def w2l_decode(samples, dfa=None):
 
     start = time.monotonic()
     if dfa:
-        dfa_node = ffi.cast('w2l_dfa_node *', ffi.from_buffer(dfa))
+        dfa_node = decodeffi.cast('w2l_dfa_node *', ffi.from_buffer(dfa))
         decode_text = decodelib.w2l_decoder_dfa(decoder, emission, dfa_node, len(dfa))
     else:
         decode_text = decodelib.w2l_decoder_decode(decoder, emission)
