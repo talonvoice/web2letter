@@ -435,7 +435,7 @@ var samples = [];
 
 function message(text) {
     var message = document.getElementById('message');
-    message.innerHTML = text;
+    message.innerText = text;
 }
 
 function runDecode(samples) {
@@ -454,8 +454,12 @@ function runDecode(samples) {
     .then(response => {
         var data = JSON.parse(response);
         if (data.emit.length > 0 && data.decode.length > 0) {
-            document.getElementById('emit').innerHTML = data.emit;
-            document.getElementById('decode').innerHTML = data.decode.join(' ');
+            var decode = document.createElement('div');
+            decode.classList.add("decode");
+            decode.innerText = data.decode.join(' ');
+            var output = document.getElementById('output')
+            output.insertBefore(decode, output.firstChild);
+            document.getElementById('emit').innerText = data.emit;
         }
         message('waiting for speech');
     }).catch(response => message('error from server: ' + response));
@@ -571,19 +575,26 @@ button {
     margin: auto;
     display: block;
 }
-#message, #emit, #decode {
+#message, #emit {
+    font-style: italic;
     font-size: 15pt;
     text-align: center;
 }
-#emit, #decode {
+#emit, .decode {
     margin-top: 10px;
-    font-size: 25pt;
+    text-align: left;
 }
-#message, #emit {
-    font-style: italic;
+.decode {
+    font-size: 25pt;
 }
 .spacer {
     margin-top: 15px;
+}
+.decode:first-child {
+    color: #000;
+}
+.decode {
+    color: #aaa;
 }
 </style>
 </head>
@@ -594,8 +605,8 @@ button {
         <button id="record" onclick="record()">record</button>
         <div class="spacer"></div>
         <div id="message"></div>
-        <div id="decode"></div>
         <div id="emit"></div>
+        <div id="output"></div>
     </div>
 </body>
 </html>

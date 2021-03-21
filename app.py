@@ -130,7 +130,7 @@ def w2l_decode(samples, dfa=None):
     lib.free(emission)
 
     decode = consume_c_text(decode_text, sep=' ')
-    return emit, decode, emit_ms, decode_ms
+    return ' '.join(emit), decode, emit_ms, decode_ms
 
 app = Flask('web2letter')
 
