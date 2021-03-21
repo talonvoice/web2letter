@@ -63,6 +63,7 @@ if not good:
 opts = decodeffi.new('w2l_decode_options *')
 
 opts.beamsize = 183
+opts.beamsizetoken = 100
 opts.beamthresh = 23.530
 opts.lmweight = 1.30
 opts.wordscore = 0.5
@@ -104,7 +105,7 @@ def consume_c_text(c_text, sep):
     lib.free(c_text)
     if not text:
         return []
-    return text.strip().split(sep)
+    return text.strip().strip(sep).split(sep)
 
 def w2l_decode(samples, dfa=None):
     c_samples = ffi.new('float[]', samples)
@@ -118,7 +119,6 @@ def w2l_decode(samples, dfa=None):
     if not emit:
         lib.free(emission)
         return '', [], emit_ms, 0
-    return ' '.join(emit), emit, emit_ms, 0
 
     start = time.monotonic()
     if dfa:
