@@ -109,7 +109,8 @@ def consume_c_text(c_text, sep):
     return text.strip().strip(sep).split(sep)
 
 def w2l_decode(samples, dfa=None):
-    samples = (np.random.rand(8000) * 1e-12).tolist() + list(samples)
+    pad = (np.random.rand(4000) * 1e-12).tolist()
+    samples = pad + list(samples) + pad
     c_samples = ffi.new('float[]', samples)
     start = time.monotonic()
     emission = lib.w2l_engine_forward(encoder, c_samples, len(samples))
